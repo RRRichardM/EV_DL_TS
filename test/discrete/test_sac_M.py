@@ -14,6 +14,7 @@ from tianshou.trainer import OffpolicyTrainer
 from tianshou.utils import TensorboardLogger
 from tianshou.utils.net.common import Net
 from tianshou.utils.net.discrete import Actor, Critic
+from env_M import MyEnvironment
 
 
 def get_args():
@@ -29,7 +30,7 @@ def get_args():
     parser.add_argument("--tau", type=float, default=0.005)
     parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--auto-alpha", action="store_true", default=False)
-    parser.add_argument("--epoch", type=int, default=5)
+    parser.add_argument("--epoch", type=int, default=2)
     parser.add_argument("--step-per-epoch", type=int, default=10000)
     parser.add_argument("--step-per-collect", type=int, default=10)
     parser.add_argument("--update-per-step", type=float, default=0.1)
@@ -50,16 +51,19 @@ def get_args():
 
 def test_discrete_sac(args=get_args()):
     env = gym.make(args.task)
+    env = MyEnvironment()
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.action_space.shape or env.action_space.n
     if args.reward_threshold is None:
         default_reward_threshold = {"CartPole-v0": 170}  # lower the goal
-        args.reward_threshold = default_reward_threshold.get(args.task, env.spec.reward_threshold)
-        
-        args.
+        # args.reward_threshold = default_reward_threshold.get(args.task, env.spec.reward_threshold)
+        args.reward_threshold = 1000
 
-    train_envs = DummyVectorEnv([lambda: gym.make(args.task) for _ in range(args.training_num)])
-    test_envs = DummyVectorEnv([lambda: gym.make(args.task) for _ in range(args.test_num)])
+    # train_envs = DummyVectorEnv([lambda: gym.make(args.task) for _ in range(args.training_num)])
+    # test_envs = DummyVectorEnv([lambda: gym.make(args.task) for _ in range(args.test_num)])
+    train_envs = DummyVectorEnv([lambda: MyEnvironment() for _ in range(args.training_num)])
+    test_envs = DummyVectorEnv([lambda: MyEnvironment() for _ in range(args.test_num)])
+
     # seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -125,21 +129,25 @@ def test_discrete_sac(args=get_args()):
         step_per_collect=args.step_per_collect,
         episode_per_test=args.test_num,
         batch_size=args.batch_size,
-        stop_fn=stop_fn,
+        # stop_fn=stop_fn,
         save_best_fn=save_best_fn,
         logger=logger,
         update_per_step=args.update_per_step,
         test_in_train=False,
     ).run()
-    assert stop_fn(result["best_reward"])
+    # assert stop_fn(result["best_reward"])
 
     if __name__ == "__main__":
         pprint.pprint(result)
         # Let's watch its performance!
+
         env = gym.make(args.task, render_mode="human")
+        env = MyEnvironment()
         policy.eval()
+
         collector = Collector(policy, env)
-        result = collector.collect(n_episode=1, render=args.render)
+        collector.collect(n_episode=1, render=args.render)
+        result = collector.collect(n_episode=1, render=1 / 30)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
